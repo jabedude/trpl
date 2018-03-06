@@ -25,5 +25,21 @@ fn jump_to(addr: *mut u8) -> ! {
 
 #[no_mangle]
 pub extern "C" fn kmain() {
-    // FIXME: Implement the bootloader.
+    let mut led = pi::gpio::Gpio::new(16).into_output();
+    led.set();
+    let mut serial = pi::uart::MiniUart::new();
+    serial.set_read_timeout(750);
+
+    let mut kimage: &mut [u8];
+    unsafe { kimage = std::slice::from_raw_parts_mut(BINARY_START, MAX_BINARY_SIZE); }
+
+    loop {
+        match xmodem::Xmodem::receive(&mut serial, &mut kimage) {
+            Ok(_) => break,
+            Err(_) => continue,
+        }
+    }
+
+    led.clear();
+    jump_to(BINARY_START);
 }
